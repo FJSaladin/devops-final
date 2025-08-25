@@ -6,40 +6,50 @@ on:
       - main
 
 jobs:
-  build-test-deploy:
+  build-and-deploy:
     runs-on: ubuntu-latest
 
+    env:
+      DOCKER_HUB_USERNAME: ${{ secrets.DOCKER_HUB_USERNAME }}
+      DOCKER_HUB_ACCESS_TOKEN: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
+      RENDER_SERVICE_ID: ${{ secrets.RENDER_SERVICE_ID }}
+      RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+
     steps:
-    # 1. Clonar el repositorio
-    - name: Checkout repository
+    - name: Checkout code
       uses: actions/checkout@v3
 
-    # 2. Configurar Python
-    - name: Setup Python
+    - name: Set up Python
       uses: actions/setup-python@v4
       with:
         python-version: '3.11'
 
-    # 3. Instalar dependencias
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install -r requirements.txt
-        pip install pytest
+        pip install flask pytest
 
-    # 4. Ejecutar pruebas unitarias
     - name: Run tests
-      run: pytest
+      run: |
+        export PYTHONPATH="${PYTHONPATH}:$(pwd)"
+        pytest tests/
 
-    # 5. Login en Docker Hub
-    - name: Login to Docker Hub
+    - name: Log in to Docker Hub
       uses: docker/login-action@v2
       with:
-        username: ${{ secrets.DOCKER_USERNAME }}
-        password: ${{ secrets.DOCKER_PASSWORD }}
+        username: ${{ secrets.DOCKER_HUB_USERNAME }}
+        password: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
 
-    # 6. Construir y subir imagen Docker
-    - name: Build and push Docker image
+    - name: Build Docker image
       run: |
-        docker build -t mi-app-devops:latest .
-        docker tag mi-app-devops:latest ${{ secrets.DOCKER_USERNAME }}/mi-ap_
+        docker build -t $DOCKER_HUB_USERNAME/mi-app-devops:latest .
+
+    - name: Push Docker image
+      run: |
+        docker push $DOCKER_HUB_USERNAME/mi-app-devops:latest
+
+    - name: Deploy to Render
+      run: |
+        curl -X POST "https://api.render.com/v1/services/$RENDER_SERVICE_ID/deploys" \
+        -H "Accept: application/json" \
+        -H "Authorization: Bearer $RENDER_API_KEY"
