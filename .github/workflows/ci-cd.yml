@@ -1,0 +1,45 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-test-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+    # 1. Clonar el repositorio
+    - name: Checkout repository
+      uses: actions/checkout@v3
+
+    # 2. Configurar Python
+    - name: Setup Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+
+    # 3. Instalar dependencias
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install pytest
+
+    # 4. Ejecutar pruebas unitarias
+    - name: Run tests
+      run: pytest
+
+    # 5. Login en Docker Hub
+    - name: Login to Docker Hub
+      uses: docker/login-action@v2
+      with:
+        username: ${{ secrets.DOCKER_USERNAME }}
+        password: ${{ secrets.DOCKER_PASSWORD }}
+
+    # 6. Construir y subir imagen Docker
+    - name: Build and push Docker image
+      run: |
+        docker build -t mi-app-devops:latest .
+        docker tag mi-app-devops:latest ${{ secrets.DOCKER_USERNAME }}/mi-ap_
